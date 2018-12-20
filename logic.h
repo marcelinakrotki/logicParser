@@ -1,4 +1,5 @@
 typedef enum { typeCon, typeId, typeOpr } nodeEnum;
+// typedef enum { NOT=260, AND, OR, NOR, XOR, NAND } operEnum;
 
 /* constants */
 typedef struct {
@@ -11,7 +12,7 @@ typedef struct {
 } idNodeType;
 
 /* operators */
-typedef struct {
+typedef struct {	
 	int oper; /* operator */
 	int nops; /* number of operands */
 	struct nodeTypeTag *op[1]; /* operands, extended at runtime */

@@ -43,7 +43,7 @@ program:
 	;
 
 function:
-	function stmt { ex($2); freeNode($2); }
+	function stmt { printTree($2); freeNode($2); }
 	| /* NULL */
 	;
 
@@ -66,7 +66,7 @@ expr:
 %%
 
 #define SIZEOF_NODETYPE ((char *)&p->con - (char *)p)
-
+void printOper(int oper);
 nodeType *createNodeValue(int value) {
 	printf("nodeValue\n");
 	nodeType *p;
@@ -105,7 +105,7 @@ nodeType *createNodeOper1(int oper, nodeType* child)
         p->type = typeOpr;
         p->opr.oper = oper;
         p->opr.nops = 1;
-        p->opr.op[0] = child;
+        p->opr.op[1] = child;
         return p;
 }
 nodeType *createNodeOper2(int oper, nodeType* leftChild, nodeType* rightChild)
@@ -125,7 +125,39 @@ nodeType *createNodeOper2(int oper, nodeType* leftChild, nodeType* rightChild)
 
 void printTree(nodeType* tree)
 {
-        printf("printing tree\n");
+        if(tree->type==2 && tree->opr.op[0] != NULL) printTree(tree->opr.op[0]);
+        if(tree->type==2){
+            printOper(tree->opr.oper);
+        }
+        if(tree->type==1){
+            printf("%c ", 'a' + tree->id.i );
+        }
+        if(tree->type==2 && tree->opr.op[1] != NULL) printTree(tree->opr.op[1]);        
+}
+
+void printOper(int oper){
+    switch(oper){
+        case NOT: 
+            printf("NOT ");
+            break;
+        case AND:
+            printf("AND ");
+            break;
+        case OR:
+            printf("OR ");
+            break;
+        case NOR:
+            printf("NOR ");
+            break;
+        case XOR:
+            printf("XOR ");
+            break;
+        case NAND:
+            printf("NAND ");
+            break;
+        default:
+            printf("%d ", oper);
+    }
 }
 
 
