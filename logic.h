@@ -16,6 +16,7 @@ typedef struct {
 	int nops; /* number of operands */
 	struct nodeTypeTag *op[1]; /* operands, extended at runtime */
 } oprNodeType;
+
 typedef struct nodeTypeTag {
 	nodeEnum type; /* type of node */
 	union {
