@@ -13,7 +13,10 @@ int yylex(void);
 void yyerror(char *s);
 int cnfMode(nodeType* p);
 int dnfMode(nodeType* p);
-int norMode(nodeType* p);
+nodeType* norMode(nodeType* p);
+nodeType* andToNor(nodeType* left, nodeType* right);
+nodeType* orToNor(nodeType* left, nodeType* right);
+nodeType* notToNor(nodeType* right);
 int nandMode(nodeType* p);
 
 int sym[26]; /* symbol table */
@@ -43,7 +46,7 @@ program:
 	;
 
 function:
-	function stmt { printTree($2); freeNode($2); }
+	function stmt { ex($2); freeNode($2); }
 	| /* NULL */
 	;
 
@@ -61,6 +64,7 @@ expr:
 	|expr OR expr   {$$=createNodeOper2(OR, $1, $3);}
 	|expr NOR expr  {$$=createNodeOper2(NOR, $1, $3);}
 	|expr XOR expr  {$$=createNodeOper2(XOR, $1, $3);}
+    |'(' expr ')' { $$ = $2; }
 	;
 
 %%
@@ -125,14 +129,21 @@ nodeType *createNodeOper2(int oper, nodeType* leftChild, nodeType* rightChild)
 
 void printTree(nodeType* tree)
 {
-        if(tree->type==2 && tree->opr.op[0] != NULL) printTree(tree->opr.op[0]);
-        if(tree->type==2){
+        if(tree->type==typeOpr && tree->opr.op[0] != NULL){
+            printf("( ");
+            printTree(tree->opr.op[0]);
+        }
+        if(tree->type==typeOpr){
             printOper(tree->opr.oper);
         }
-        if(tree->type==1){
+        if(tree->type==typeId){
             printf("%c ", 'a' + tree->id.i );
         }
-        if(tree->type==2 && tree->opr.op[1] != NULL) printTree(tree->opr.op[1]);        
+        if(tree->type==typeOpr && tree->opr.op[1] != NULL){
+            if(tree->opr.nops==1) printf("( ");
+            printTree(tree->opr.op[1]);
+            printf(") ");        
+        }
 }
 
 void printOper(int oper){
@@ -205,7 +216,8 @@ int ex(nodeType *p)
     }
     else if(method == nor) 
     {
-	norMode(p);
+	printTree(norMode(p));
+    return 0;
     }
     else if(method == nand) 
     {
@@ -291,8 +303,45 @@ int nandMode(nodeType* p)
 	printf("Nand type");
 	return 0;
 }
-int norMode(nodeType* p)
+nodeType* norMode(nodeType* p)
 {
-	printf("Nor type");
-	return 0;
+	if(p->type == typeId){
+        return p;
+    }
+
+    if(p->type == typeOpr){
+
+        nodeType* leftChild = NULL;
+        nodeType* rightChild = NULL;
+    
+        if(p->opr.op[0] != NULL) leftChild = norMode(p->opr.op[0]);
+        if(p->opr.op[1] != NULL) rightChild = norMode(p->opr.op[1]);
+
+        switch(p->opr.oper){
+            case AND:
+                return andToNor(leftChild, rightChild);
+            case OR:
+                return orToNor(leftChild, rightChild);
+            case NOT:
+                return notToNor(rightChild);
+        }
+
+    }
+
+}
+
+nodeType* andToNor(nodeType* left, nodeType* right){
+    nodeType* leftChild = createNodeOper2(NOR, left, left);
+    nodeType* rightChild = createNodeOper2(NOR, right, right);
+    return createNodeOper2(NOR, leftChild, rightChild);
+}
+
+nodeType* orToNor(nodeType* left, nodeType* right){
+    nodeType* leftChild = createNodeOper2(NOR, left, right);
+    nodeType* rightChild = createNodeOper2(NOR, left, right);
+    return createNodeOper2(NOR, leftChild, rightChild);
+}
+
+nodeType* notToNor(nodeType* right){
+    return createNodeOper2(NOR, right, right);
 }
