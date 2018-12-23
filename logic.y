@@ -11,12 +11,21 @@ void freeNode(nodeType *p);
 int ex(nodeType *p);
 int yylex(void);
 void yyerror(char *s);
-int cnfMode(nodeType* p);
-int dnfMode(nodeType* p);
+
+nodeType* cnfMode(nodeType* p);
+nodeType* removeDoubleNegation(nodeType* p);
+nodeType* deMorganOrToAnd(nodeType* p);
+nodeType* deMorganAndToOr(nodeType* p);
+nodeType* cnfTransform(nodeType* p);
+
+nodeType* dnfMode(nodeType* p);
+nodeType* dnfTransform(nodeType* p);
+
 nodeType* norMode(nodeType* p);
 nodeType* andToNor(nodeType* left, nodeType* right);
 nodeType* orToNor(nodeType* left, nodeType* right);
 nodeType* notToNor(nodeType* right);
+
 int nandMode(nodeType* p);
 
 int sym[26]; /* symbol table */
@@ -208,95 +217,44 @@ int ex(nodeType *p)
 {   
     if(method == cnf) 
     {
-	cnfMode(p);
+	    printTree(cnfMode(p));
+        return 0;
     }
     else if(method == dnf) 
     {
-	dnfMode(p);
+	    printTree(dnfMode(p));
+        return 0;
     }
     else if(method == nor) 
     {
-	printTree(norMode(p));
-    return 0;
+	    printTree(norMode(p));
+        return 0;
     }
     else if(method == nand) 
     {
-	nandMode(p);
+	    nandMode(p);
     }
-    int lbl1, lbl2;
-    if (!p) 
-    	return 0;
-    
-    switch(p->type) {
-        case typeCon:
-            printf("\tpush\t%d\n", p->con.value);
-            break;
-        case typeId:
-            printf("\tpush\t%c\n", p->id.i + 'a');
-            break;
-        case typeOpr:
-            switch(p->opr.oper) {
-                /*case WHILE:
-                    printf("L%03d:\n", lbl1 = lbl++);
-                    ex(p->opr.op[0]);
-                    printf("\tjz\tL%03d\n", lbl2 = lbl++);
-                    ex(p->opr.op[1]);
-                    printf("\tjmp\tL%03d\n", lbl1);
-                    printf("L%03d:\n", lbl2);
-                    break;
-                case IF:
-                    ex(p->opr.op[0]);
-                    if (p->opr.nops > 2) {
-                        printf("\tjz\tL%03d\n", lbl1 = lbl++);
-                        ex(p->opr.op[1]);
-                        printf("\tjmp\tL%03d\n", lbl2 = lbl++); printf("L%03d:\n", lbl1);
-                        ex(p->opr.op[2]); printf("L%03d:\n", lbl2);
-                    } else {
-                        printf("\tjz\tL%03d\n", lbl1 = lbl++); ex(p->opr.op[1]);
-                        printf("L%03d:\n", lbl1); 
-                    }
-                    break;
-                case PRINT:
-                    ex(p->opr.op[0]);
-                    printf("\tprint\n");
-                    break;*/
-                case '=':
-                    ex(p->opr.op[1]);
-                    printf("\tpop\t%c\n", p->opr.op[0]->id.i + 'a');
-                    break;
-                default: 
-                    ex(p->opr.op[0]);
-                    ex(p->opr.op[1]); 
-		    switch(p->opr.oper) {
-			case '+': printf("\tadd\n"); break;
-			case '-': printf("\tsub\n"); break;
-			case '*': printf("\tmul\n"); break;
-			case '/': printf("\tdiv\n"); break;
-			case '<': printf("\tcompLT\n"); break;
-			case '>': printf("\tcompGT\n"); break;
-			case AND: printf("\tcompAND\n"); break;
-			case NAND: printf("\tcompNAND\n"); break;
-			case NOR: printf("\tcompNOR\n"); break;
-			case OR: printf("\tcompOR\n"); break;
-			case XOR: printf("\tcompXOR\n"); break;
-			case NOT: printf("\tcompNOT\n"); break;
-		    }
-            }
-        }
     
     return 0;
 }
 
-int dnfMode(nodeType* p)
+nodeType* dnfMode(nodeType* p)
 {
-	printf("DNF type");
-	return 0;
+	return dnfTransform(deMorganAndToOr(deMorganOrToAnd(removeDoubleNegation(p))));
 }
 
-int cnfMode(nodeType* p)
+/*
+    Sprowadzenie do cnf/dnf:
+    1. Eliminacja zagnieżdżonych negacji: NOT(NOT a) -> a
+    2. De Morgan: NOT(a OR b) -> NOT a AND NOT b
+    3. De MOrgan: NOT(a AND b) -> NOT a OR NOT b
+    4. CNF: a OR (b AND c) -> (a OR b) AND (a OR c)
+    4. DNF: a AND (b OR c) -> (a AND b) OR (a AND c)
+*/
+
+nodeType* cnfMode(nodeType* p)
 {
-	printf("CNF type");
-	return 0;
+	return cnfTransform(deMorganAndToOr(deMorganOrToAnd(removeDoubleNegation(p))));
 }
 int nandMode(nodeType* p)
 {
@@ -344,4 +302,145 @@ nodeType* orToNor(nodeType* left, nodeType* right){
 
 nodeType* notToNor(nodeType* right){
     return createNodeOper2(NOR, right, right);
+}
+
+// 1. Eliminacja zagnieżdżonych negacji: NOT(NOT a) -> a
+nodeType* removeDoubleNegation(nodeType* p){
+ 	if(p->type == typeId){
+        return p;
+    }
+    nodeType* left = p->opr.op[0];
+    nodeType* right = p->opr.op[1];
+
+    if(p->opr.op[0] != NULL) left = removeDoubleNegation(p->opr.op[0]);
+    if(p->opr.op[1] != NULL) right = removeDoubleNegation(p->opr.op[1]);
+
+    if(p->opr.oper == NOT){
+        nodeType* child = right;
+        if(child->type == typeOpr && child->opr.oper == NOT){
+            return child->opr.op[1]; 
+        }
+    } 
+
+    p->opr.op[0]=left;
+    p->opr.op[1]=right;
+    return p;
+}
+
+// 2. De Morgan: NOT(a OR b) -> NOT a AND NOT b
+nodeType* deMorganOrToAnd(nodeType* p){
+    if(p->type == typeId){
+        return p;
+    }
+    nodeType* left = p->opr.op[0];
+    nodeType* right = p->opr.op[1];
+
+    if(p->opr.op[0] != NULL) left = deMorganOrToAnd(p->opr.op[0]);
+    if(p->opr.op[1] != NULL) right = deMorganOrToAnd(p->opr.op[1]);
+
+    if(p->opr.oper == NOT){
+        nodeType* child = right;
+        if(child->type == typeOpr && child->opr.oper == OR){
+            return createNodeOper2(AND,
+                createNodeOper1(NOT,child->opr.op[0]),
+                createNodeOper1(NOT,child->opr.op[1])); 
+        }
+    }
+
+    p->opr.op[0]=left;
+    p->opr.op[1]=right;
+    return p;
+}
+
+// 3. De MOrgan: NOT(a AND b) -> NOT a OR NOT b
+nodeType* deMorganAndToOr(nodeType* p){
+    if(p->type == typeId){
+        return p;
+    }
+    nodeType* left = p->opr.op[0];
+    nodeType* right = p->opr.op[1];
+
+    if(p->opr.op[0] != NULL) left = deMorganAndToOr(p->opr.op[0]);
+    if(p->opr.op[1] != NULL) right = deMorganAndToOr(p->opr.op[1]);
+
+    if(p->opr.oper == NOT){
+        nodeType* child = right;
+        if(child->type == typeOpr && child->opr.oper == AND){
+            return createNodeOper2(OR,
+                createNodeOper1(NOT,child->opr.op[0]),
+                createNodeOper1(NOT,child->opr.op[1])); 
+        }
+    }
+
+    p->opr.op[0]=left;
+    p->opr.op[1]=right;
+    return p;
+}
+
+// 4. CNF: a OR (b AND c) -> (a OR b) AND (a OR c)
+nodeType* cnfTransform(nodeType* p){
+    if(p->type == typeId){
+        return p;
+    }
+    nodeType* left = p->opr.op[0];
+    nodeType* right = p->opr.op[1];
+
+    if(p->opr.op[0] != NULL) left = cnfTransform(p->opr.op[0]);
+    if(p->opr.op[1] != NULL) right = cnfTransform(p->opr.op[1]);
+
+    if(p->opr.oper == OR){
+        if(right->type == typeOpr){
+            if(right->opr.oper == AND){
+                return createNodeOper2(AND,
+                    createNodeOper2(OR,left,right->opr.op[0] ),
+                    createNodeOper2(OR,left,right->opr.op[1]));
+            }
+        }
+        // w drugą stronę
+        if(left->type == typeOpr){
+            if(left->opr.oper == AND){
+                return createNodeOper2(AND,
+                    createNodeOper2(OR,right,left->opr.op[0] ),
+                    createNodeOper2(OR,right,left->opr.op[1]));
+            }
+        }
+    }
+
+    p->opr.op[0]=left;
+    p->opr.op[1]=right;
+    return p;
+}
+
+// 4. DNF: a AND (b OR c) -> (a AND b) OR (a AND c)
+nodeType* dnfTransform(nodeType* p){
+    if(p->type == typeId){
+        return p;
+    }
+    nodeType* left = p->opr.op[0];
+    nodeType* right = p->opr.op[1];
+
+    if(p->opr.op[0] != NULL) left = dnfTransform(p->opr.op[0]);
+    if(p->opr.op[1] != NULL) right = dnfTransform(p->opr.op[1]);
+
+    if(p->opr.oper == AND){
+        if(right->type == typeOpr){
+            if(right->opr.oper == OR){
+                return createNodeOper2(OR,
+                    createNodeOper2(AND,left,right->opr.op[0] ),
+                    createNodeOper2(AND,left,right->opr.op[1]));
+            }
+        }
+        // w drugą stronę
+        if(left->type == typeOpr){
+            if(left->opr.oper == OR){
+                return createNodeOper2(OR,
+                    createNodeOper2(AND,right,left->opr.op[0] ),
+                    createNodeOper2(AND,right,left->opr.op[1]));
+            }
+        }
+    }
+
+    p->opr.op[0]=left;
+    p->opr.op[1]=right;
+    return p;
 }

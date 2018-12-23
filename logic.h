@@ -5,7 +5,7 @@ typedef enum { typeCon, typeId, typeOpr } nodeEnum;
 typedef struct {
 	int value; /* value of constant */
 } conNodeType;
-
+	
 /* identifiers */
 typedef struct {
 	int i; /* subscript to sym array */
