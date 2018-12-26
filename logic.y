@@ -25,6 +25,9 @@ nodeType* norMode(nodeType* p);
 nodeType* andToNor(nodeType* left, nodeType* right);
 nodeType* orToNor(nodeType* left, nodeType* right);
 nodeType* notToNor(nodeType* right);
+nodeType* norToNor(nodeType* left, nodeType* right);
+nodeType* nandToNor(nodeType* left, nodeType* right);
+nodeType* xorToNor(nodeType* left, nodeType* right);
 
 int nandMode(nodeType* p);
 
@@ -282,10 +285,14 @@ nodeType* norMode(nodeType* p)
                 return orToNor(leftChild, rightChild);
             case NOT:
                 return notToNor(rightChild);
+            case NOR:
+                return norToNor(leftChild, rightChild);
+            case NAND:
+                return nandToNor(leftChild, rightChild);
+            case XOR:
+                return xorToNor(leftChild, rightChild);
         }
-
     }
-
 }
 
 nodeType* andToNor(nodeType* left, nodeType* right){
@@ -302,6 +309,20 @@ nodeType* orToNor(nodeType* left, nodeType* right){
 
 nodeType* notToNor(nodeType* right){
     return createNodeOper2(NOR, right, right);
+}
+
+nodeType* norToNor(nodeType* left, nodeType* right){
+    return createNodeOper2(NOR, left, right);
+}
+
+nodeType* nandToNor(nodeType* left, nodeType* right){
+    return notToNor(andToNor(left, right));
+}
+
+nodeType* xorToNor(nodeType* left, nodeType* right){
+    nodeType* leftChild = andToNor(left, right);
+    nodeType* rightChild = norToNor(left, right);
+    return createNodeOper2(NOR, leftChild, rightChild);
 }
 
 // 1. Eliminacja zagnieżdżonych negacji: NOT(NOT a) -> a
