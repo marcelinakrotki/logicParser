@@ -12,15 +12,18 @@ int ex(nodeType *p);
 int yylex(void);
 void yyerror(char *s);
 
+//CNF
 nodeType* cnfMode(nodeType* p);
 nodeType* removeDoubleNegation(nodeType* p);
 nodeType* deMorganOrToAnd(nodeType* p);
 nodeType* deMorganAndToOr(nodeType* p);
 nodeType* cnfTransform(nodeType* p);
 
+//DNF
 nodeType* dnfMode(nodeType* p);
 nodeType* dnfTransform(nodeType* p);
 
+//NOR
 nodeType* norMode(nodeType* p);
 nodeType* andToNor(nodeType* left, nodeType* right);
 nodeType* orToNor(nodeType* left, nodeType* right);
@@ -29,7 +32,15 @@ nodeType* norToNor(nodeType* left, nodeType* right);
 nodeType* nandToNor(nodeType* left, nodeType* right);
 nodeType* xorToNor(nodeType* left, nodeType* right);
 
-int nandMode(nodeType* p);
+
+//NAND
+nodeType* nandMode(nodeType* p);
+nodeType* andToNand(nodeType* left, nodeType* right);
+nodeType* orToNand(nodeType* left, nodeType* right);
+nodeType* notToNand(nodeType* right);
+nodeType* norToNand(nodeType* left, nodeType* right);
+nodeType* nandToNand(nodeType* left, nodeType* right);
+nodeType* xorToNand(nodeType* left, nodeType* right);
 
 int sym[26]; /* symbol table */
 int method = 0;
@@ -235,7 +246,8 @@ int ex(nodeType *p)
     }
     else if(method == nand) 
     {
-	    nandMode(p);
+	    printTree(nandMode(p));
+        return 0;
     }
     
     return 0;
@@ -259,11 +271,7 @@ nodeType* cnfMode(nodeType* p)
 {
 	return cnfTransform(deMorganAndToOr(deMorganOrToAnd(removeDoubleNegation(p))));
 }
-int nandMode(nodeType* p)
-{
-	printf("Nand type");
-	return 0;
-}
+
 nodeType* norMode(nodeType* p)
 {
 	if(p->type == typeId){
@@ -323,6 +331,74 @@ nodeType* xorToNor(nodeType* left, nodeType* right){
     nodeType* leftChild = andToNor(left, right);
     nodeType* rightChild = norToNor(left, right);
     return createNodeOper2(NOR, leftChild, rightChild);
+}
+
+nodeType* nandMode(nodeType* p)
+{
+	if(p->type == typeId){
+        return p;
+    }
+
+    if(p->type == typeOpr){
+
+        nodeType* leftChild = NULL;
+        nodeType* rightChild = NULL;
+    
+        if(p->opr.op[0] != NULL) leftChild = norMode(p->opr.op[0]);
+        if(p->opr.op[1] != NULL) rightChild = norMode(p->opr.op[1]);
+
+        switch(p->opr.oper){
+            case AND:
+                return andToNand(leftChild, rightChild);
+            case OR:
+                return orToNand(leftChild, rightChild);
+            case NOT:
+                return notToNand(rightChild);
+            case NOR:
+                return norToNand(leftChild, rightChild);
+            case NAND:
+                return nandToNand(leftChild, rightChild);
+            case XOR:
+                return xorToNand(leftChild, rightChild);
+        }
+    }
+}
+
+nodeType* andToNand(nodeType* left, nodeType* right)
+{
+    nodeType* child = createNodeOper2(NAND, left, right);
+    return createNodeOper2(NAND, child, child);
+}
+
+nodeType* orToNand(nodeType* left, nodeType* right)
+{
+    nodeType* leftChild = createNodeOper2(NAND, left, left);
+    nodeType* rightChild = createNodeOper2(NAND, right, right);
+    return createNodeOper2(NAND, leftChild, rightChild);
+}
+
+nodeType* norToNand(nodeType* left, nodeType* right)
+{
+    nodeType* child = orToNand(left, right);
+    return createNodeOper2(NAND, child, child);
+}
+
+nodeType* notToNand(nodeType* right)
+{
+    return createNodeOper2(NAND, right, right);
+}
+
+nodeType* nandToNand(nodeType* left, nodeType* right)
+{
+    return createNodeOper2(NAND, left, right);
+}
+
+nodeType* xorToNand(nodeType* left, nodeType* right)
+{
+    nodeType* middleChild = createNodeOper2(NAND, left, right);
+    nodeType* leftChild = createNodeOper2(NAND, left, middleChild);
+    nodeType* rightChild = createNodeOper2(NAND, middleChild, right);
+    return createNodeOper2(NAND, leftChild, rightChild);
 }
 
 // 1. Eliminacja zagnieżdżonych negacji: NOT(NOT a) -> a
