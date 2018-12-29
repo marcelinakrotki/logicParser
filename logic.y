@@ -564,6 +564,29 @@ nodeType* optimize(nodeType* p){
     if(p->opr.op[0] != NULL) left = optimize(p->opr.op[0]);
     if(p->opr.op[1] != NULL) right = optimize(p->opr.op[1]);
 
+    //1 and 1   0 or 1   itp.
+    if(left->type == typeCon && right->type == typeCon){
+        int leftVal = left->con.value;
+        int rightVal = right->con.value;
+        if(p->opr.oper == AND){
+            if(leftVal==1 && rightVal==1){
+                return createNodeValue(1);
+            }
+            else{
+                return createNodeValue(0);
+            }
+        }
+
+        if(p->opr.oper == OR){
+            if(leftVal==1 || rightVal==1){
+                return createNodeValue(1);
+            }
+            else{
+                return createNodeValue(0);
+            }
+        }
+    }
+
     //not 0 -> 1
     if(p->opr.oper == NOT){
         if(right->type == typeCon){
