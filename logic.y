@@ -12,6 +12,7 @@ int ex(nodeType *p);
 int yylex(void);
 void yyerror(char *s);
 
+nodeType* optimize(nodeType* p);
 //CNF
 nodeType* cnfMode(nodeType* p);
 nodeType* cnfTransform(nodeType* p);
@@ -161,6 +162,9 @@ void printTree(nodeType* tree)
         if(tree->type==typeId){
             printf("%c ", 'a' + tree->id.i );
         }
+        if(tree->type==typeCon){
+            printf("%d ", tree->con.value );
+        }
         if(tree->type==typeOpr && tree->opr.op[1] != NULL){
             if(tree->opr.nops==1) printf("( ");
             printTree(tree->opr.op[1]);
@@ -240,7 +244,7 @@ int ex(nodeType *p)
     }
     else if(method == nor) 
     {
-	    printTree(norMode(p));
+	    printTree(optimize(p));
         return 0;
     }
     else if(method == nand) 
@@ -273,7 +277,7 @@ nodeType* cnfMode(nodeType* p)
 
 nodeType* norMode(nodeType* p)
 {
-	if(p->type == typeId){
+	if(p->type != typeOpr){
         return p;
     }
 
@@ -334,7 +338,7 @@ nodeType* xorToNor(nodeType* left, nodeType* right){
 
 nodeType* nandMode(nodeType* p)
 {
-	if(p->type == typeId){
+	if(p->type != typeOpr){
         return p;
     }
 
@@ -401,7 +405,7 @@ nodeType* xorToNand(nodeType* left, nodeType* right)
 }
 
 nodeType* transformToBasicOperators(nodeType* p){
-    if(p->type == typeId){
+    if(p->type != typeOpr){
         return p;
     }
     nodeType* leftChild = NULL;
@@ -447,13 +451,13 @@ nodeType* transformToBasicOperators(nodeType* p){
 nodeType* applyDemorganLaws(nodeType* node){
     if(!node) return node;
     
-    if (node->type == typeId) {
+    if (node->type != typeOpr) {
         return node;
     }
 
     if(node->opr.oper == NOT ) {
         nodeType* child = node->opr.op[1];
-        if(child->type == typeId) {
+        if(child->type != typeOpr) {
             return node;
         }
 
@@ -484,7 +488,7 @@ nodeType* applyDemorganLaws(nodeType* node){
 
 // 4. CNF: a OR (b AND c) -> (a OR b) AND (a OR c)
 nodeType* cnfTransform(nodeType* p){
-    if(p->type == typeId){
+    if(p->type != typeOpr){
         return p;
     }
     nodeType* left = p->opr.op[0];
@@ -518,7 +522,7 @@ nodeType* cnfTransform(nodeType* p){
 
 // 4. DNF: a AND (b OR c) -> (a AND b) OR (a AND c)
 nodeType* dnfTransform(nodeType* p){
-    if(p->type == typeId){
+    if(p->type != typeOpr){
         return p;
     }
     nodeType* left = p->opr.op[0];
@@ -549,3 +553,87 @@ nodeType* dnfTransform(nodeType* p){
     p->opr.op[1]=right;
     return p;
 }
+
+nodeType* optimize(nodeType* p){
+    if(p->type != typeOpr){
+        return p;
+    }
+    nodeType* left = p->opr.op[0];
+    nodeType* right = p->opr.op[1];
+
+    if(p->opr.op[0] != NULL) left = optimize(p->opr.op[0]);
+    if(p->opr.op[1] != NULL) right = optimize(p->opr.op[1]);
+
+    //not 0 -> 1
+    if(p->opr.oper == NOT){
+        if(right->type == typeCon){
+            if(right->con.value == 0){
+                return createNodeValue(1);
+            }
+            if(right->con.value == 1){
+                return createNodeValue(0);
+            }
+        }
+    }
+    // a and a
+    if(p->opr.oper == AND){
+        if(right->type == typeId && left->type == typeId){
+            if(right->id.i == left->id.i){
+                return createNodeVariable(right->id.i);
+            }
+        }   
+    }
+
+    //  a and not a
+    if(p->opr.oper == AND){
+        if(right->type == typeId && left->type == typeOpr){
+            if(left->opr.oper == NOT){
+                nodeType* notsChild = left->opr.op[1];
+                if(notsChild->type == typeId){
+                    if(right->id.i == notsChild->id.i){
+                        return createNodeValue(0);
+                    }
+                }
+            }
+        }  
+        // w drugo strone
+        if(left->type == typeId && right->type == typeOpr){
+            if(right->opr.oper == NOT){
+                nodeType* notsChild = right->opr.op[1];
+                if(notsChild->type == typeId){
+                    if(left->id.i == notsChild->id.i){
+                        return createNodeValue(0);
+                    }
+                }
+            }
+        }    
+    }
+
+    // a and 0/1
+    if(p->opr.oper == AND){
+        if(right->type == typeId && left->type == typeCon){
+            if(left->con.value == 0){
+                return createNodeValue(0);
+            }
+            if(left->con.value == 1){
+                return createNodeVariable(right->id.i);
+            }
+        }  
+        // w drugo strone
+        if(left->type == typeId && right->type == typeCon){
+            if(right->con.value == 0){
+                return createNodeValue(0);
+            }
+            if(right->con.value == 1){
+                return createNodeVariable(left->id.i);  
+            }
+        } 
+    }
+
+ 
+
+    p->opr.op[0]=left;
+    p->opr.op[1]=right;
+    return p;
+}
+
