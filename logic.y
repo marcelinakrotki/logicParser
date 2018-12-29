@@ -653,7 +653,7 @@ nodeType* optimize(nodeType* p){
         } 
     }
 
- 
+    //TODO: Brakuje ORa
 
     p->opr.op[0]=left;
     p->opr.op[1]=right;
