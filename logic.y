@@ -15,6 +15,7 @@ void yyerror(char *s);
 //CNF
 nodeType* cnfMode(nodeType* p);
 nodeType* cnfTransform(nodeType* p);
+nodeType* transformToBasicOperators(nodeType* p);
 nodeType* applyDemorganLaws(nodeType* p);
 
 //DNF
@@ -260,7 +261,7 @@ int ex(nodeType *p)
 
 nodeType* dnfMode(nodeType* p)
 {
-	return dnfTransform(applyDemorganLaws(p));
+	return dnfTransform(applyDemorganLaws(transformToBasicOperators(p)));
 }
 
 /*
@@ -274,7 +275,7 @@ nodeType* dnfMode(nodeType* p)
 
 nodeType* cnfMode(nodeType* p)
 {
-	return cnfTransform(applyDemorganLaws(p));
+	return cnfTransform(applyDemorganLaws(transformToBasicOperators(p)));
 }
 
 nodeType* norMode(nodeType* p)
@@ -409,6 +410,49 @@ nodeType* xorToNand(nodeType* left, nodeType* right)
     return createNodeOper2(NAND, leftChild, rightChild);
 }
 
+nodeType* transformToBasicOperators(nodeType* p){
+    if(p->type == typeId){
+        return p;
+    }
+    nodeType* leftChild = NULL;
+    nodeType* rightChild = NULL;
+
+    if(p->opr.op[0] != NULL) leftChild = transformToBasicOperators(p->opr.op[0]);
+    if(p->opr.op[1] != NULL) rightChild = transformToBasicOperators(p->opr.op[1]);
+
+    switch(p->opr.oper){
+        case(NAND):
+            p=createNodeOper1(NOT,
+                createNodeOper2(AND, 
+                p->opr.op[0], 
+                p->opr.op[1])
+            );
+            break;
+        case(XOR):
+            p=createNodeOper2(AND, 
+                createNodeOper2(OR,
+                    p->opr.op[0], 
+                    p->opr.op[1]
+                ),
+                createNodeOper1(NOT,
+                    createNodeOper2(AND, 
+                        p->opr.op[0], 
+                        p->opr.op[1]
+                    )
+                )
+            );
+            break;
+        case(NOR):
+            p=createNodeOper1(NOT, 
+                createNodeOper2(OR, 
+                    p->opr.op[0], 
+                    p->opr.op[1])
+            );
+            break;
+    }
+
+    return p;
+}
 
 nodeType* applyDemorganLaws(nodeType* node){
     if(!node) return node;
@@ -431,11 +475,10 @@ nodeType* applyDemorganLaws(nodeType* node){
         {
             node = child->opr.op[1];
             return applyDemorganLaws(node);
-        } 
-        else 
-        {
-            int new_operator = child->opr.oper == AND ? OR : AND;
-            node = createNodeOper2(new_operator, 
+        } else {
+            int oper = child->opr.oper == AND ? OR : AND;
+
+            node = createNodeOper2(oper, 
                     createNodeOper1(NOT, child->opr.op[0]),
                     createNodeOper1(NOT, child->opr.op[1])
                 );
