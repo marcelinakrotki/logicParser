@@ -18,6 +18,7 @@ nodeType* removeDoubleNegation(nodeType* p);
 nodeType* deMorganOrToAnd(nodeType* p);
 nodeType* deMorganAndToOr(nodeType* p);
 nodeType* cnfTransform(nodeType* p);
+nodeType* applyDemorganLaws(nodeType* p);
 
 //DNF
 nodeType* dnfMode(nodeType* p);
@@ -255,7 +256,7 @@ int ex(nodeType *p)
 
 nodeType* dnfMode(nodeType* p)
 {
-	return dnfTransform(deMorganAndToOr(deMorganOrToAnd(removeDoubleNegation(p))));
+	return dnfTransform(applyDemorganLaws(p));
 }
 
 /*
@@ -269,7 +270,7 @@ nodeType* dnfMode(nodeType* p)
 
 nodeType* cnfMode(nodeType* p)
 {
-	return cnfTransform(deMorganAndToOr(deMorganOrToAnd(removeDoubleNegation(p))));
+	return cnfTransform(applyDemorganLaws(p));
 }
 
 nodeType* norMode(nodeType* p)
@@ -424,55 +425,44 @@ nodeType* removeDoubleNegation(nodeType* p){
     return p;
 }
 
-// 2. De Morgan: NOT(a OR b) -> NOT a AND NOT b
-nodeType* deMorganOrToAnd(nodeType* p){
-    if(p->type == typeId){
-        return p;
+
+nodeType* applyDemorganLaws(nodeType* node){
+    if(!node) return node;
+    
+    if (node->type == typeId) {
+        return node;
     }
-    nodeType* left = p->opr.op[0];
-    nodeType* right = p->opr.op[1];
 
-    if(p->opr.op[0] != NULL) left = deMorganOrToAnd(p->opr.op[0]);
-    if(p->opr.op[1] != NULL) right = deMorganOrToAnd(p->opr.op[1]);
+    if(node->opr.oper == NOT ) {
+        nodeType* child = node->opr.op[1];
+        if(child->type == typeId) {
+            return node;
+        }
 
-    if(p->opr.oper == NOT){
-        nodeType* child = right;
-        if(child->type == typeOpr && child->opr.oper == OR){
-            return createNodeOper2(AND,
-                createNodeOper1(NOT,child->opr.op[0]),
-                createNodeOper1(NOT,child->opr.op[1])); 
+        if(child->opr.oper == NOT) {
+            node = child->opr.op[1];
+            return applyDemorganLaws(node);
+        } else {
+            int new_operator = child->opr.oper == AND ? OR : AND;
+
+            node = createNodeOper2(new_operator, 
+                    createNodeOper1(NOT, 
+                        child->opr.op[0]),
+                    createNodeOper1(NOT, 
+                        child->opr.op[1])
+                );
         }
     }
+    if(node->type !=typeOpr ){
+        return node;
+    }
+    if (node->opr.oper != NOT) {
+        node->opr.op[0] = applyDemorganLaws(node->opr.op[0]);
+    }
+    node->opr.op[1] = applyDemorganLaws(node->opr.op[1]);    
 
-    p->opr.op[0]=left;
-    p->opr.op[1]=right;
-    return p;
 }
 
-// 3. De MOrgan: NOT(a AND b) -> NOT a OR NOT b
-nodeType* deMorganAndToOr(nodeType* p){
-    if(p->type == typeId){
-        return p;
-    }
-    nodeType* left = p->opr.op[0];
-    nodeType* right = p->opr.op[1];
-
-    if(p->opr.op[0] != NULL) left = deMorganAndToOr(p->opr.op[0]);
-    if(p->opr.op[1] != NULL) right = deMorganAndToOr(p->opr.op[1]);
-
-    if(p->opr.oper == NOT){
-        nodeType* child = right;
-        if(child->type == typeOpr && child->opr.oper == AND){
-            return createNodeOper2(OR,
-                createNodeOper1(NOT,child->opr.op[0]),
-                createNodeOper1(NOT,child->opr.op[1])); 
-        }
-    }
-
-    p->opr.op[0]=left;
-    p->opr.op[1]=right;
-    return p;
-}
 
 // 4. CNF: a OR (b AND c) -> (a OR b) AND (a OR c)
 nodeType* cnfTransform(nodeType* p){
