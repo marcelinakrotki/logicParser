@@ -14,9 +14,6 @@ void yyerror(char *s);
 
 //CNF
 nodeType* cnfMode(nodeType* p);
-nodeType* removeDoubleNegation(nodeType* p);
-nodeType* deMorganOrToAnd(nodeType* p);
-nodeType* deMorganAndToOr(nodeType* p);
 nodeType* cnfTransform(nodeType* p);
 nodeType* applyDemorganLaws(nodeType* p);
 
@@ -400,29 +397,6 @@ nodeType* xorToNand(nodeType* left, nodeType* right)
     nodeType* leftChild = createNodeOper2(NAND, left, middleChild);
     nodeType* rightChild = createNodeOper2(NAND, middleChild, right);
     return createNodeOper2(NAND, leftChild, rightChild);
-}
-
-// 1. Eliminacja zagnieżdżonych negacji: NOT(NOT a) -> a
-nodeType* removeDoubleNegation(nodeType* p){
- 	if(p->type == typeId){
-        return p;
-    }
-    nodeType* left = p->opr.op[0];
-    nodeType* right = p->opr.op[1];
-
-    if(p->opr.op[0] != NULL) left = removeDoubleNegation(p->opr.op[0]);
-    if(p->opr.op[1] != NULL) right = removeDoubleNegation(p->opr.op[1]);
-
-    if(p->opr.oper == NOT){
-        nodeType* child = right;
-        if(child->type == typeOpr && child->opr.oper == NOT){
-            return child->opr.op[1]; 
-        }
-    } 
-
-    p->opr.op[0]=left;
-    p->opr.op[1]=right;
-    return p;
 }
 
 
