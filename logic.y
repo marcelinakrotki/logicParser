@@ -92,7 +92,9 @@ expr:
 
 #define SIZEOF_NODETYPE ((char *)&p->con - (char *)p)
 void printOper(int oper);
-nodeType *createNodeValue(int value) {
+
+nodeType *createNodeValue(int value)
+{
 	printf("nodeValue\n");
 	nodeType *p;
 	if ((p = malloc(sizeof(nodeType))) == NULL)
@@ -102,7 +104,8 @@ nodeType *createNodeValue(int value) {
 	return p;
 }
 
-nodeType *createNodeVariable(int i) {
+nodeType *createNodeVariable(int i)
+{
 	printf("create node variable\n");
 	nodeType *p;
 	if ((p = malloc(sizeof(nodeType))) == NULL)
@@ -112,10 +115,12 @@ nodeType *createNodeVariable(int i) {
 	return p;
 }
 
-void freeNode(nodeType *p) {
+void freeNode(nodeType *p)
+{
 	int i;
 	if (!p) return;
-	if (p->type == typeOpr) {
+	if (p->type == typeOpr)
+    {
 		for (i = 0; i < p->opr.nops; i++)
 			freeNode(p->opr.op[i]);
 	}
@@ -193,11 +198,13 @@ void printOper(int oper){
 }
 
 
-void yyerror(char *s) {
+void yyerror(char *s)
+{
 	fprintf(stdout, "%s\n", s);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
     if(argc==2)
     {   
         if(strcmp(argv[1], "-cnf") == 0) {
@@ -272,12 +279,13 @@ nodeType* cnfMode(nodeType* p)
 
 nodeType* norMode(nodeType* p)
 {
-	if(p->type == typeId){
+	if(p->type == typeId)
+    {
         return p;
     }
 
-    if(p->type == typeOpr){
-
+    if(p->type == typeOpr)
+    {
         nodeType* leftChild = NULL;
         nodeType* rightChild = NULL;
     
@@ -333,7 +341,8 @@ nodeType* xorToNor(nodeType* left, nodeType* right){
 
 nodeType* nandMode(nodeType* p)
 {
-	if(p->type == typeId){
+	if(p->type == typeId)
+    {
         return p;
     }
 
@@ -345,7 +354,8 @@ nodeType* nandMode(nodeType* p)
         if(p->opr.op[0] != NULL) leftChild = norMode(p->opr.op[0]);
         if(p->opr.op[1] != NULL) rightChild = norMode(p->opr.op[1]);
 
-        switch(p->opr.oper){
+        switch(p->opr.oper)
+        {
             case AND:
                 return andToNand(leftChild, rightChild);
             case OR:
@@ -403,36 +413,45 @@ nodeType* xorToNand(nodeType* left, nodeType* right)
 nodeType* applyDemorganLaws(nodeType* node){
     if(!node) return node;
     
-    if (node->type == typeId) {
+    if (node->type == typeId)
+    {
         return node;
     }
 
-    if(node->opr.oper == NOT ) {
+    if(node->opr.oper == NOT ) 
+    {
         nodeType* child = node->opr.op[1];
-        if(child->type == typeId) {
+
+        if(child->type == typeId) 
+        {
             return node;
         }
 
-        if(child->opr.oper == NOT) {
+        if(child->opr.oper == NOT)
+        {
             node = child->opr.op[1];
             return applyDemorganLaws(node);
-        } else {
+        } 
+        else 
+        {
             int new_operator = child->opr.oper == AND ? OR : AND;
-
             node = createNodeOper2(new_operator, 
-                    createNodeOper1(NOT, 
-                        child->opr.op[0]),
-                    createNodeOper1(NOT, 
-                        child->opr.op[1])
+                    createNodeOper1(NOT, child->opr.op[0]),
+                    createNodeOper1(NOT, child->opr.op[1])
                 );
         }
     }
-    if(node->type !=typeOpr ){
+
+    if(node->type !=typeOpr )
+    {
         return node;
     }
-    if (node->opr.oper != NOT) {
+
+    if (node->opr.oper != NOT) 
+    {
         node->opr.op[0] = applyDemorganLaws(node->opr.op[0]);
     }
+
     node->opr.op[1] = applyDemorganLaws(node->opr.op[1]);    
 
 }
