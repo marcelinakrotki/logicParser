@@ -74,7 +74,7 @@ function:
 
 stmt:
 	'\n' { $$ = createNodeOper2(';', NULL, NULL); } 
-	| expr '\n' { $$ = $1; printf("Function stmt\n"); }
+	| expr '\n' { $$ = $1; }
 	;
 
 expr:
@@ -96,7 +96,6 @@ void printOper(int oper);
 
 nodeType *createNodeValue(int value)
 {
-	printf("nodeValue\n");
 	nodeType *p;
 	if ((p = malloc(sizeof(nodeType))) == NULL)
 		yyerror("out of memory");
@@ -107,7 +106,6 @@ nodeType *createNodeValue(int value)
 
 nodeType *createNodeVariable(int i)
 {
-	printf("create node variable\n");
 	nodeType *p;
 	if ((p = malloc(sizeof(nodeType))) == NULL)
 		yyerror("out of memory");
@@ -129,7 +127,6 @@ void freeNode(nodeType *p)
 }
 nodeType *createNodeOper1(int oper, nodeType* child)
 {
-        printf("nodeOper1\n");
         nodeType *p;
         if ((p = malloc(sizeof(nodeType) + sizeof(nodeType *))) == NULL)
                 yyerror("out of memory");
@@ -141,8 +138,6 @@ nodeType *createNodeOper1(int oper, nodeType* child)
 }
 nodeType *createNodeOper2(int oper, nodeType* leftChild, nodeType* rightChild)
 {
-        printf("nodeOper2\n");
-
         nodeType *p;
         if ((p = malloc(sizeof(nodeType) + ( 2 * sizeof(nodeType *)))) == NULL)
                 yyerror("out of memory");
