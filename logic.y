@@ -43,11 +43,11 @@ nodeType* xorToNand(nodeType* left, nodeType* right);
 
 //optimization
 nodeType* optimize(nodeType* p);
-nodeType* optimize_xand0_xand1(nodeType* p, nodeType* left, nodeType* right);
-nodeType* optimize_xandnotx(nodeType* p, nodeType* left, nodeType* right);
-nodeType* optimize_xandx(nodeType* p, nodeType* left, nodeType* right);
-nodeType* optimize_not0to1(nodeType* p, nodeType* left, nodeType* right);
-nodeType* optimize_1and1_0or1(nodeType* p, nodeType* left, nodeType* right);
+nodeType* optimize_xand01_xor01(int operType, nodeType* left, nodeType* right);
+nodeType* optimize_xandnotx_xornotx(int operType, nodeType* left, nodeType* right);
+nodeType* optimize_xandx_xorx(int operType, nodeType* left, nodeType* right);
+nodeType* optimize_not0to1(int typeOper, nodeType* child);
+nodeType* optimize_1and1_0or1(int operType, nodeType* left, nodeType* right);
 
 int sym[26]; /* symbol table */
 int method = 0;
@@ -78,13 +78,13 @@ program:
 	;
 
 function:
-	function stmt { ex($2); freeNode($2); }
+	function stmt { ex($2); printf("\n"); freeNode($2); }
 	| /* NULL */
 	;
 
 stmt:
 	'\n' { $$ = createNodeOper2(';', NULL, NULL); } 
-	| expr '\n' { $$ = $1; printf("Function stmt\n"); }
+	| expr '\n' { $$ = $1; }
 	;
 
 expr:
@@ -105,7 +105,6 @@ expr:
 void printOper(int oper);
 nodeType *createNodeValue(int value)
 {
-	printf("nodeValue\n");
 	nodeType *p;
 	if ((p = malloc(sizeof(nodeType))) == NULL)
 		yyerror("out of memory");
@@ -116,7 +115,6 @@ nodeType *createNodeValue(int value)
 
 nodeType *createNodeVariable(int i)
 {
-	printf("create node variable\n");
 	nodeType *p;
 	if ((p = malloc(sizeof(nodeType))) == NULL)
 		yyerror("out of memory");
@@ -137,7 +135,6 @@ void freeNode(nodeType *p)
 }
 nodeType *createNodeOper1(int oper, nodeType* child)
 {
-        printf("nodeOper1\n");
         nodeType *p;
         if ((p = malloc(sizeof(nodeType) + sizeof(nodeType *))) == NULL)
                 yyerror("out of memory");
@@ -260,22 +257,22 @@ int ex(nodeType *p)
 {   
     if(method == cnf) 
     {
-	    printTree(cnfMode(p));
+	    printTree(cnfMode(optimize(p)));
         return 0;
     }
     else if(method == dnf) 
     {
-	    printTree(dnfMode(p));
+	    printTree(dnfMode(optimize(p)));
         return 0;
     }
     else if(method == nor) 
     {
-	    printTree(optimize(p));
+	    printTree(norMode(optimize(p)));
         return 0;
     }
     else if(method == nand) 
     {
-	    printTree(nandMode(p));
+	    printTree(nandMode(optimize(p)));
         return 0;
     }
     
@@ -606,30 +603,53 @@ nodeType* dnfTransform(nodeType* p)
     return p;
 }
 
-nodeType* optimize_1and1_0or1(nodeType* p, nodeType* left, nodeType* right)
+nodeType* optimize_1and1_0or1(int operType, nodeType* left, nodeType* right)
 {
-    if(left->type == typeCon && right->type == typeCon)
+    if(left != NULL && right != NULL)
     {
-        int leftVal = left->con.value;
-        int rightVal = right->con.value;
-        if(p->opr.oper == AND)
+        if(left->type == typeCon && right->type == typeCon)
         {
-            if(leftVal==1 && rightVal==1)
+            int leftVal = left->con.value;
+            int rightVal = right->con.value;
+            if(operType == AND)
             {
-                return createNodeValue(1);
+                if(leftVal==1 && rightVal==1)
+                {
+                    return createNodeValue(1);
+                }
+                else
+                {
+                    return createNodeValue(0);
+                }
             }
-            else
+            else if(operType == OR)
             {
-                return createNodeValue(0);
+                if(leftVal==1 || rightVal==1)
+                {
+                    return createNodeValue(1);
+                }
+                else
+                {
+                    return createNodeValue(0);
+                }
             }
         }
-        else if(p->opr.oper == OR)
+    }
+    return NULL;
+}
+
+nodeType* optimize_not0to1(int typeOper, nodeType* child)
+{
+    if(typeOper == NOT)
+    {
+        if(child->type == typeCon)
         {
-            if(leftVal==1 || rightVal==1)
+            if(child->con.value == 0)
             {
                 return createNodeValue(1);
             }
-            else{
+            if(child->con.value == 1)
+            {
                 return createNodeValue(0);
             }
         }
@@ -637,28 +657,9 @@ nodeType* optimize_1and1_0or1(nodeType* p, nodeType* left, nodeType* right)
     return NULL;
 }
 
-nodeType* optimize_not0to1(nodeType* p, nodeType* left, nodeType* right)
+nodeType* optimize_xandx_xorx(int operType, nodeType* left, nodeType* right)
 {
-    if(p->opr.oper == NOT)
-    {
-        if(right->type == typeCon)
-        {
-            if(right->con.value == 0)
-            {
-                return createNodeValue(1);
-            }
-            if(right->con.value == 1)
-            {
-                return createNodeValue(0);
-            }
-        }
-    }
-    return NULL;
-}
-
-nodeType* optimize_xandx(nodeType* p, nodeType* left, nodeType* right)
-{
-    if(p->opr.oper == AND)
+    if(operType == AND || operType == OR)
     {
         if(right->type == typeId && left->type == typeId)
         {
@@ -671,9 +672,9 @@ nodeType* optimize_xandx(nodeType* p, nodeType* left, nodeType* right)
     return NULL;
 }
 
-nodeType* optimize_xandnotx(nodeType* p, nodeType* left, nodeType* right)
+nodeType* optimize_xandnotx_xornotx(int operType, nodeType* left, nodeType* right)
 {
-    if(p->opr.oper == AND)
+    if(operType == AND)
     {
         if(right->type == typeId && left->type == typeOpr)
         {
@@ -704,12 +705,43 @@ nodeType* optimize_xandnotx(nodeType* p, nodeType* left, nodeType* right)
             }
         }    
     }
+    else if(operType == OR)
+    {
+        if(right->type == typeId && left->type == typeOpr)
+        {
+            if(left->opr.oper == NOT)
+            {
+                nodeType* notsChild = left->opr.op[1];
+                if(notsChild->type == typeId)
+                {
+                    if(right->id.i == notsChild->id.i)
+                    {
+                        return createNodeValue(1);
+                    }
+                }
+            }
+        }  
+        if(left->type == typeId && right->type == typeOpr)
+        {
+            if(right->opr.oper == NOT)
+            {
+                nodeType* notsChild = right->opr.op[1];
+                if(notsChild->type == typeId)
+                {
+                    if(left->id.i == notsChild->id.i)
+                    {
+                        return createNodeValue(1);
+                    }
+                }
+            }
+        }    
+    }
     return NULL;
 }
 
-nodeType* optimize_xand0_xand1(nodeType* p, nodeType* left, nodeType* right)
+nodeType* optimize_xand01_xor01(int operType, nodeType* left, nodeType* right)
 {
-    if(p->opr.oper == AND)
+    if(operType == AND)
     {
         if(right->type == typeId && left->type == typeCon)
         {
@@ -734,16 +766,42 @@ nodeType* optimize_xand0_xand1(nodeType* p, nodeType* left, nodeType* right)
             }
         } 
     }
+    else if(operType == OR)
+    {
+        if(right->type == typeId && left->type == typeCon)
+        {
+            if(left->con.value == 0)
+            {
+                return createNodeVariable(right->id.i);
+            }
+            else if(left->con.value == 1)
+            {
+                return createNodeValue(1);
+            }
+        }  
+        if(left->type == typeId && right->type == typeCon)
+        {
+            if(right->con.value == 0)
+            {
+                return createNodeVariable(left->id.i); 
+            }
+            else if(right->con.value == 1)
+            {
+                return createNodeValue(1); 
+            }
+        } 
+    }
+    
     return NULL;
 }
 
 nodeType* optimize(nodeType* p)
 {
-    printf("Optimization______:\n");
     if(p->type != typeOpr)
     {
         return p;
     }
+    
     nodeType* left = p->opr.op[0];
     nodeType* right = p->opr.op[1];
 
@@ -751,20 +809,18 @@ nodeType* optimize(nodeType* p)
     if(p->opr.op[1] != NULL) right = optimize(p->opr.op[1]);
 
     nodeType* returnValue;
-
-    if ((returnValue = optimize_1and1_0or1(p, left, right)) != NULL )
+    int operType = p->opr.oper;
+    if ((returnValue = optimize_1and1_0or1(operType, left, right)) != NULL )
         return returnValue;
-    else if( ( returnValue = optimize_not0to1(p, left, right)) != NULL )
+    else if( ( returnValue = optimize_not0to1(operType, right)) != NULL )
         return returnValue;
-    else if( ( returnValue = optimize_xandx(p, left, right)) != NULL )
+    else if( ( returnValue = optimize_xandx_xorx(operType, left, right)) != NULL )
         return returnValue;
-    else if( ( returnValue = optimize_xandnotx(p, left, right)) != NULL )
+    else if( ( returnValue = optimize_xandnotx_xornotx(operType, left, right)) != NULL )
         return returnValue;
-    else if( ( returnValue = optimize_xand0_xand1(p, left, right)) != NULL )
+    else if( ( returnValue = optimize_xand01_xor01(operType, left, right)) != NULL )
         return returnValue;
-
-   //TODO: Brakuje ORa
-
+   
     p->opr.op[0]=left;
     p->opr.op[1]=right;
     return p;
