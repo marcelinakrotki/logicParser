@@ -48,6 +48,7 @@ nodeType* optimize_xandnotx_xornotx(int operType, nodeType* left, nodeType* righ
 nodeType* optimize_xandx_xorx(int operType, nodeType* left, nodeType* right);
 nodeType* optimize_not0to1(int typeOper, nodeType* child);
 nodeType* optimize_1and1_0or1(int operType, nodeType* left, nodeType* right);
+nodeType* optimize_removeDoubleNot(int operType, nodeType* child);
 
 int sym[26]; /* symbol table */
 int method = 0;
@@ -595,7 +596,6 @@ nodeType* dnfTransform(nodeType* p)
         {
             return transformOper1ToOper2(AND, OR, right, left);
         }
-
     }
 
     p->opr.op[0]=left;
@@ -739,6 +739,22 @@ nodeType* optimize_xandnotx_xornotx(int operType, nodeType* left, nodeType* righ
     return NULL;
 }
 
+
+nodeType* optimize_removeDoubleNot(int operType, nodeType* child)
+{
+    if(operType == NOT)
+    {
+        if(child->type == typeOpr)
+        {
+            if(child->opr.oper == NOT)
+            {
+                return child->opr.op[1];
+            }
+        }
+    }
+    return NULL;
+}
+
 nodeType* optimize_xand01_xor01(int operType, nodeType* left, nodeType* right)
 {
     if(operType == AND)
@@ -819,6 +835,8 @@ nodeType* optimize(nodeType* p)
     else if( ( returnValue = optimize_xandnotx_xornotx(operType, left, right)) != NULL )
         return returnValue;
     else if( ( returnValue = optimize_xand01_xor01(operType, left, right)) != NULL )
+        return returnValue;
+    else if( ( returnValue = optimize_removeDoubleNot(operType, right)) != NULL )
         return returnValue;
    
     p->opr.op[0]=left;
