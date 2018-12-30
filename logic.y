@@ -68,7 +68,7 @@ program:
 	;
 
 function:
-	function stmt { ex($2); freeNode($2); }
+	function stmt { ex($2); printf("\n"); freeNode($2); }
 	| /* NULL */
 	;
 
