@@ -12,7 +12,6 @@ int ex(nodeType *p);
 int yylex(void);
 void yyerror(char *s);
 
-nodeType* optimize(nodeType* p);
 //CNF
 nodeType* cnfMode(nodeType* p);
 nodeType* cnfTransform(nodeType* p);
@@ -42,6 +41,14 @@ nodeType* norToNand(nodeType* left, nodeType* right);
 nodeType* nandToNand(nodeType* left, nodeType* right);
 nodeType* xorToNand(nodeType* left, nodeType* right);
 
+//optimization
+nodeType* optimize(nodeType* p);
+nodeType* optimize_xand0_xand1(nodeType* p, nodeType* left, nodeType* right);
+nodeType* optimize_xandnotx(nodeType* p, nodeType* left, nodeType* right);
+nodeType* optimize_xandx(nodeType* p, nodeType* left, nodeType* right);
+nodeType* optimize_not0to1(nodeType* p, nodeType* left, nodeType* right);
+nodeType* optimize_1and1_0or1(nodeType* p, nodeType* left, nodeType* right);
+
 int sym[26]; /* symbol table */
 int method = 0;
 nodeType *createNodeOper1(int oper, nodeType* child);
@@ -49,6 +56,8 @@ nodeType *createNodeOper2(int oper, nodeType* leftChild, nodeType* rightChild);
 nodeType *createNodeValue(int value);
 nodeType *createNodeVariable(int variable);
 void printTree(nodeType* tree);
+nodeType* transformOper1ToOper2(int oper1, int oper2, nodeType* right, nodeType* left);
+
 %}
 
 %union {
@@ -94,7 +103,8 @@ expr:
 
 #define SIZEOF_NODETYPE ((char *)&p->con - (char *)p)
 void printOper(int oper);
-nodeType *createNodeValue(int value) {
+nodeType *createNodeValue(int value)
+{
 	printf("nodeValue\n");
 	nodeType *p;
 	if ((p = malloc(sizeof(nodeType))) == NULL)
@@ -104,7 +114,8 @@ nodeType *createNodeValue(int value) {
 	return p;
 }
 
-nodeType *createNodeVariable(int i) {
+nodeType *createNodeVariable(int i)
+{
 	printf("create node variable\n");
 	nodeType *p;
 	if ((p = malloc(sizeof(nodeType))) == NULL)
@@ -114,7 +125,8 @@ nodeType *createNodeVariable(int i) {
 	return p;
 }
 
-void freeNode(nodeType *p) {
+void freeNode(nodeType *p)
+{
 	int i;
 	if (!p) return;
 	if (p->type == typeOpr) {
@@ -137,8 +149,6 @@ nodeType *createNodeOper1(int oper, nodeType* child)
 }
 nodeType *createNodeOper2(int oper, nodeType* leftChild, nodeType* rightChild)
 {
-        printf("nodeOper2\n");
-
         nodeType *p;
         if ((p = malloc(sizeof(nodeType) + ( 2 * sizeof(nodeType *)))) == NULL)
                 yyerror("out of memory");
@@ -152,27 +162,37 @@ nodeType *createNodeOper2(int oper, nodeType* leftChild, nodeType* rightChild)
 
 void printTree(nodeType* tree)
 {
-        if(tree->type==typeOpr && tree->opr.op[0] != NULL){
+        if(tree->type==typeOpr && tree->opr.op[0] != NULL)
+        {
             printf("( ");
             printTree(tree->opr.op[0]);
         }
-        if(tree->type==typeOpr){
+
+        if(tree->type==typeOpr)
+        {
             printOper(tree->opr.oper);
         }
-        if(tree->type==typeId){
+
+        if(tree->type==typeId)
+        {
             printf("%c ", 'a' + tree->id.i );
         }
-        if(tree->type==typeCon){
+
+        if(tree->type==typeCon)
+        {
             printf("%d ", tree->con.value );
         }
-        if(tree->type==typeOpr && tree->opr.op[1] != NULL){
+
+        if(tree->type==typeOpr && tree->opr.op[1] != NULL)
+        {
             if(tree->opr.nops==1) printf("( ");
             printTree(tree->opr.op[1]);
             printf(") ");        
         }
 }
 
-void printOper(int oper){
+void printOper(int oper)
+{
     switch(oper){
         case NOT: 
             printf("NOT ");
@@ -198,23 +218,29 @@ void printOper(int oper){
 }
 
 
-void yyerror(char *s) {
+void yyerror(char *s)
+{
 	fprintf(stdout, "%s\n", s);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
     if(argc==2)
     {   
-        if(strcmp(argv[1], "-cnf") == 0) {
+        if(strcmp(argv[1], "-cnf") == 0) 
+        {
                 method = cnf;
         }
-        if(strcmp(argv[1], "-dnf") == 0) {
+        else if(strcmp(argv[1], "-dnf") == 0)
+        {
                 method = dnf;
         }
-        if(strcmp(argv[1], "-nor") == 0) {
+        else if(strcmp(argv[1], "-nor") == 0)
+        {
                 method = nor;
         }
-        if(strcmp(argv[1], "-nand") == 0) {
+        else if(strcmp(argv[1], "-nand") == 0)
+        {
                 method = nand;
         }
     }   
@@ -281,15 +307,16 @@ nodeType* norMode(nodeType* p)
         return p;
     }
 
-    if(p->type == typeOpr){
-
+    if(p->type == typeOpr)
+    {
         nodeType* leftChild = NULL;
         nodeType* rightChild = NULL;
     
         if(p->opr.op[0] != NULL) leftChild = norMode(p->opr.op[0]);
         if(p->opr.op[1] != NULL) rightChild = norMode(p->opr.op[1]);
 
-        switch(p->opr.oper){
+        switch(p->opr.oper)
+        {
             case AND:
                 return andToNor(leftChild, rightChild);
             case OR:
@@ -306,31 +333,37 @@ nodeType* norMode(nodeType* p)
     }
 }
 
-nodeType* andToNor(nodeType* left, nodeType* right){
+nodeType* andToNor(nodeType* left, nodeType* right)
+{
     nodeType* leftChild = createNodeOper2(NOR, left, left);
     nodeType* rightChild = createNodeOper2(NOR, right, right);
     return createNodeOper2(NOR, leftChild, rightChild);
 }
 
-nodeType* orToNor(nodeType* left, nodeType* right){
+nodeType* orToNor(nodeType* left, nodeType* right)
+{
     nodeType* leftChild = createNodeOper2(NOR, left, right);
     nodeType* rightChild = createNodeOper2(NOR, left, right);
     return createNodeOper2(NOR, leftChild, rightChild);
 }
 
-nodeType* notToNor(nodeType* right){
+nodeType* notToNor(nodeType* right)
+{
     return createNodeOper2(NOR, right, right);
 }
 
-nodeType* norToNor(nodeType* left, nodeType* right){
+nodeType* norToNor(nodeType* left, nodeType* right)
+{
     return createNodeOper2(NOR, left, right);
 }
 
-nodeType* nandToNor(nodeType* left, nodeType* right){
+nodeType* nandToNor(nodeType* left, nodeType* right)
+{
     return notToNor(andToNor(left, right));
 }
 
-nodeType* xorToNor(nodeType* left, nodeType* right){
+nodeType* xorToNor(nodeType* left, nodeType* right)
+{
     nodeType* leftChild = andToNor(left, right);
     nodeType* rightChild = norToNor(left, right);
     return createNodeOper2(NOR, leftChild, rightChild);
@@ -347,10 +380,17 @@ nodeType* nandMode(nodeType* p)
         nodeType* leftChild = NULL;
         nodeType* rightChild = NULL;
     
-        if(p->opr.op[0] != NULL) leftChild = norMode(p->opr.op[0]);
-        if(p->opr.op[1] != NULL) rightChild = norMode(p->opr.op[1]);
+        if(p->opr.op[0] != NULL)
+        {
+            leftChild = norMode(p->opr.op[0]);
+        }
+        if(p->opr.op[1] != NULL)
+        {
+            rightChild = norMode(p->opr.op[1]);
+        }
 
-        switch(p->opr.oper){
+        switch(p->opr.oper)
+        {
             case AND:
                 return andToNand(leftChild, rightChild);
             case OR:
@@ -404,149 +444,161 @@ nodeType* xorToNand(nodeType* left, nodeType* right)
     return createNodeOper2(NAND, leftChild, rightChild);
 }
 
-nodeType* transformToBasicOperators(nodeType* p){
-    if(p->type != typeOpr){
+nodeType* transformToBasicOperators(nodeType* p)
+{
+    if(p->type != typeOpr)
+    {
         return p;
     }
     nodeType* leftChild = NULL;
     nodeType* rightChild = NULL;
 
-    if(p->opr.op[0] != NULL) leftChild = transformToBasicOperators(p->opr.op[0]);
-    if(p->opr.op[1] != NULL) rightChild = transformToBasicOperators(p->opr.op[1]);
-
-    switch(p->opr.oper){
-        case(NAND):
-            p=createNodeOper1(NOT,
-                createNodeOper2(AND, 
-                p->opr.op[0], 
-                p->opr.op[1])
-            );
-            break;
-        case(XOR):
-            p=createNodeOper2(AND, 
-                createNodeOper2(OR,
-                    p->opr.op[0], 
-                    p->opr.op[1]
-                ),
-                createNodeOper1(NOT,
-                    createNodeOper2(AND, 
-                        p->opr.op[0], 
-                        p->opr.op[1]
-                    )
-                )
-            );
-            break;
-        case(NOR):
-            p=createNodeOper1(NOT, 
-                createNodeOper2(OR, 
-                    p->opr.op[0], 
-                    p->opr.op[1])
-            );
-            break;
+    if(p->opr.op[0] != NULL) 
+    {
+        leftChild = transformToBasicOperators(p->opr.op[0]);
+    }
+    if(p->opr.op[1] != NULL)
+    {
+        rightChild = transformToBasicOperators(p->opr.op[1]);
     }
 
+    nodeType* andOper;
+    nodeType* orOper;
+    nodeType* notOper;
+
+    switch(p->opr.oper)
+    {
+        case(NAND):
+            andOper = createNodeOper2(AND, p->opr.op[0], p->opr.op[1]);
+            p = createNodeOper1(NOT, andOper);
+            break;
+        case(XOR):
+            andOper = createNodeOper2(AND, p->opr.op[0], p->opr.op[1]);
+            orOper = createNodeOper2(OR, p->opr.op[0], p->opr.op[1]);
+            notOper = createNodeOper1(NOT, andOper);
+            p = createNodeOper2(AND, orOper, notOper);
+            break;
+        case(NOR):
+            orOper = createNodeOper2(OR, p->opr.op[0], p->opr.op[1]);
+            p = createNodeOper1(NOT, orOper);
+            break;
+    }
     return p;
 }
 
 nodeType* applyDemorganLaws(nodeType* node){
     if(!node) return node;
     
-    if (node->type != typeOpr) {
+    if (node->type != typeOpr)
+    {
         return node;
     }
 
-    if(node->opr.oper == NOT ) {
+    if(node->opr.oper == NOT )
+    {
         nodeType* child = node->opr.op[1];
-        if(child->type != typeOpr) {
+        if(child->type != typeOpr)
+        {
             return node;
         }
 
-        if(child->opr.oper == NOT) {
+        if(child->opr.oper == NOT)
+        {
             node = child->opr.op[1];
             return applyDemorganLaws(node);
-        } else {
+        } 
+        else
+        {
             int oper = child->opr.oper == AND ? OR : AND;
-
-            node = createNodeOper2(oper, 
-                    createNodeOper1(NOT, 
-                        child->opr.op[0]),
-                    createNodeOper1(NOT, 
-                        child->opr.op[1])
-                );
+            nodeType* notOper1 = createNodeOper1(NOT, child->opr.op[0]);
+            nodeType* notOper2 = createNodeOper1(NOT, child->opr.op[1]);
+            node = createNodeOper2(oper, notOper1, notOper2);
         }
     }
-    if(node->type !=typeOpr ){
+    if(node->type !=typeOpr )
+    {
         return node;
     }
-    if (node->opr.oper != NOT) {
+    if (node->opr.oper != NOT)
+    {
         node->opr.op[0] = applyDemorganLaws(node->opr.op[0]);
     }
     node->opr.op[1] = applyDemorganLaws(node->opr.op[1]);    
-
 }
 
 
 // 4. CNF: a OR (b AND c) -> (a OR b) AND (a OR c)
-nodeType* cnfTransform(nodeType* p){
-    if(p->type != typeOpr){
+nodeType* cnfTransform(nodeType* p)
+{
+    if(p->type != typeOpr)
+    {
         return p;
     }
     nodeType* left = p->opr.op[0];
     nodeType* right = p->opr.op[1];
 
-    if(p->opr.op[0] != NULL) left = cnfTransform(p->opr.op[0]);
-    if(p->opr.op[1] != NULL) right = cnfTransform(p->opr.op[1]);
-
-    if(p->opr.oper == OR){
-        if(right->type == typeOpr){
-            if(right->opr.oper == AND){
-                return createNodeOper2(AND,
-                    createNodeOper2(OR,left,right->opr.op[0] ),
-                    createNodeOper2(OR,left,right->opr.op[1]));
-            }
-        }
-        // w drugą stronę
-        if(left->type == typeOpr){
-            if(left->opr.oper == AND){
-                return createNodeOper2(AND,
-                    createNodeOper2(OR,right,left->opr.op[0] ),
-                    createNodeOper2(OR,right,left->opr.op[1]));
-            }
-        }
+    if(p->opr.op[0] != NULL) 
+    {
+        left = cnfTransform(p->opr.op[0]);
+    }
+    if(p->opr.op[1] != NULL) 
+    {
+        right = cnfTransform(p->opr.op[1]);
     }
 
+    if(p->opr.oper == OR)
+    {
+        if(right->type == typeOpr && right->opr.oper == AND)
+        {    
+            return transformOper1ToOper2(OR, AND, left, right);
+        }
+        if(left->type == typeOpr && left->opr.oper == AND)
+        {
+            return transformOper1ToOper2(OR, AND, right, left);
+        }
+    }
     p->opr.op[0]=left;
     p->opr.op[1]=right;
     return p;
+}
+
+nodeType* transformOper1ToOper2(int oper1, int oper2, nodeType* right, nodeType* left)
+{
+    nodeType* orOper1 = createNodeOper2(oper1, left, right->opr.op[0]);
+    nodeType* orOper2 = createNodeOper2(oper1, left, right->opr.op[1]);
+    return createNodeOper2(oper2, orOper1, orOper2);
 }
 
 // 4. DNF: a AND (b OR c) -> (a AND b) OR (a AND c)
-nodeType* dnfTransform(nodeType* p){
-    if(p->type != typeOpr){
+nodeType* dnfTransform(nodeType* p)
+{
+    if(p->type != typeOpr)
+    {
         return p;
     }
     nodeType* left = p->opr.op[0];
     nodeType* right = p->opr.op[1];
 
-    if(p->opr.op[0] != NULL) left = dnfTransform(p->opr.op[0]);
-    if(p->opr.op[1] != NULL) right = dnfTransform(p->opr.op[1]);
+    if(p->opr.op[0] != NULL)
+    {
+        left = dnfTransform(p->opr.op[0]);
+    }
+    if(p->opr.op[1] != NULL)
+    {
+        right = dnfTransform(p->opr.op[1]);
+    }
 
-    if(p->opr.oper == AND){
-        if(right->type == typeOpr){
-            if(right->opr.oper == OR){
-                return createNodeOper2(OR,
-                    createNodeOper2(AND,left,right->opr.op[0] ),
-                    createNodeOper2(AND,left,right->opr.op[1]));
-            }
+    if(p->opr.oper == AND)
+    {
+        if(right->type == typeOpr && right->opr.oper == OR)
+        {
+            return transformOper1ToOper2(AND, OR, left, right);
         }
-        // w drugą stronę
-        if(left->type == typeOpr){
-            if(left->opr.oper == OR){
-                return createNodeOper2(OR,
-                    createNodeOper2(AND,right,left->opr.op[0] ),
-                    createNodeOper2(AND,right,left->opr.op[1]));
-            }
+        if(left->type == typeOpr && left->opr.oper == OR)
+        {
+            return transformOper1ToOper2(AND, OR, right, left);
         }
+
     }
 
     p->opr.op[0]=left;
@@ -554,8 +606,142 @@ nodeType* dnfTransform(nodeType* p){
     return p;
 }
 
-nodeType* optimize(nodeType* p){
-    if(p->type != typeOpr){
+nodeType* optimize_1and1_0or1(nodeType* p, nodeType* left, nodeType* right)
+{
+    if(left->type == typeCon && right->type == typeCon)
+    {
+        int leftVal = left->con.value;
+        int rightVal = right->con.value;
+        if(p->opr.oper == AND)
+        {
+            if(leftVal==1 && rightVal==1)
+            {
+                return createNodeValue(1);
+            }
+            else
+            {
+                return createNodeValue(0);
+            }
+        }
+        else if(p->opr.oper == OR)
+        {
+            if(leftVal==1 || rightVal==1)
+            {
+                return createNodeValue(1);
+            }
+            else{
+                return createNodeValue(0);
+            }
+        }
+    }
+    return NULL;
+}
+
+nodeType* optimize_not0to1(nodeType* p, nodeType* left, nodeType* right)
+{
+    if(p->opr.oper == NOT)
+    {
+        if(right->type == typeCon)
+        {
+            if(right->con.value == 0)
+            {
+                return createNodeValue(1);
+            }
+            if(right->con.value == 1)
+            {
+                return createNodeValue(0);
+            }
+        }
+    }
+    return NULL;
+}
+
+nodeType* optimize_xandx(nodeType* p, nodeType* left, nodeType* right)
+{
+    if(p->opr.oper == AND)
+    {
+        if(right->type == typeId && left->type == typeId)
+        {
+            if(right->id.i == left->id.i)
+            {
+                return createNodeVariable(right->id.i);
+            }
+        }   
+    }
+    return NULL;
+}
+
+nodeType* optimize_xandnotx(nodeType* p, nodeType* left, nodeType* right)
+{
+    if(p->opr.oper == AND)
+    {
+        if(right->type == typeId && left->type == typeOpr)
+        {
+            if(left->opr.oper == NOT)
+            {
+                nodeType* notsChild = left->opr.op[1];
+                if(notsChild->type == typeId)
+                {
+                    if(right->id.i == notsChild->id.i)
+                    {
+                        return createNodeValue(0);
+                    }
+                }
+            }
+        }  
+        if(left->type == typeId && right->type == typeOpr)
+        {
+            if(right->opr.oper == NOT)
+            {
+                nodeType* notsChild = right->opr.op[1];
+                if(notsChild->type == typeId)
+                {
+                    if(left->id.i == notsChild->id.i)
+                    {
+                        return createNodeValue(0);
+                    }
+                }
+            }
+        }    
+    }
+    return NULL;
+}
+
+nodeType* optimize_xand0_xand1(nodeType* p, nodeType* left, nodeType* right)
+{
+    if(p->opr.oper == AND)
+    {
+        if(right->type == typeId && left->type == typeCon)
+        {
+            if(left->con.value == 0)
+            {
+                return createNodeValue(0);
+            }
+            else if(left->con.value == 1)
+            {
+                return createNodeVariable(right->id.i);
+            }
+        }  
+        if(left->type == typeId && right->type == typeCon)
+        {
+            if(right->con.value == 0)
+            {
+                return createNodeValue(0);
+            }
+            else if(right->con.value == 1)
+            {
+                return createNodeVariable(left->id.i);  
+            }
+        } 
+    }
+    return NULL;
+}
+
+nodeType* optimize(nodeType* p)
+{
+    printf("Optimization______:\n");
+    if(p->type != typeOpr)
+    {
         return p;
     }
     nodeType* left = p->opr.op[0];
@@ -564,96 +750,20 @@ nodeType* optimize(nodeType* p){
     if(p->opr.op[0] != NULL) left = optimize(p->opr.op[0]);
     if(p->opr.op[1] != NULL) right = optimize(p->opr.op[1]);
 
-    //1 and 1   0 or 1   itp.
-    if(left->type == typeCon && right->type == typeCon){
-        int leftVal = left->con.value;
-        int rightVal = right->con.value;
-        if(p->opr.oper == AND){
-            if(leftVal==1 && rightVal==1){
-                return createNodeValue(1);
-            }
-            else{
-                return createNodeValue(0);
-            }
-        }
+    nodeType* returnValue;
 
-        if(p->opr.oper == OR){
-            if(leftVal==1 || rightVal==1){
-                return createNodeValue(1);
-            }
-            else{
-                return createNodeValue(0);
-            }
-        }
-    }
+    if ((returnValue = optimize_1and1_0or1(p, left, right)) != NULL )
+        return returnValue;
+    else if( ( returnValue = optimize_not0to1(p, left, right)) != NULL )
+        return returnValue;
+    else if( ( returnValue = optimize_xandx(p, left, right)) != NULL )
+        return returnValue;
+    else if( ( returnValue = optimize_xandnotx(p, left, right)) != NULL )
+        return returnValue;
+    else if( ( returnValue = optimize_xand0_xand1(p, left, right)) != NULL )
+        return returnValue;
 
-    //not 0 -> 1
-    if(p->opr.oper == NOT){
-        if(right->type == typeCon){
-            if(right->con.value == 0){
-                return createNodeValue(1);
-            }
-            if(right->con.value == 1){
-                return createNodeValue(0);
-            }
-        }
-    }
-    // a and a
-    if(p->opr.oper == AND){
-        if(right->type == typeId && left->type == typeId){
-            if(right->id.i == left->id.i){
-                return createNodeVariable(right->id.i);
-            }
-        }   
-    }
-
-    //  a and not a
-    if(p->opr.oper == AND){
-        if(right->type == typeId && left->type == typeOpr){
-            if(left->opr.oper == NOT){
-                nodeType* notsChild = left->opr.op[1];
-                if(notsChild->type == typeId){
-                    if(right->id.i == notsChild->id.i){
-                        return createNodeValue(0);
-                    }
-                }
-            }
-        }  
-        // w drugo strone
-        if(left->type == typeId && right->type == typeOpr){
-            if(right->opr.oper == NOT){
-                nodeType* notsChild = right->opr.op[1];
-                if(notsChild->type == typeId){
-                    if(left->id.i == notsChild->id.i){
-                        return createNodeValue(0);
-                    }
-                }
-            }
-        }    
-    }
-
-    // a and 0/1
-    if(p->opr.oper == AND){
-        if(right->type == typeId && left->type == typeCon){
-            if(left->con.value == 0){
-                return createNodeValue(0);
-            }
-            if(left->con.value == 1){
-                return createNodeVariable(right->id.i);
-            }
-        }  
-        // w drugo strone
-        if(left->type == typeId && right->type == typeCon){
-            if(right->con.value == 0){
-                return createNodeValue(0);
-            }
-            if(right->con.value == 1){
-                return createNodeVariable(left->id.i);  
-            }
-        } 
-    }
-
-    //TODO: Brakuje ORa
+   //TODO: Brakuje ORa
 
     p->opr.op[0]=left;
     p->opr.op[1]=right;
